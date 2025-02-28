@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta charset="utf-8" />
+    <title>疾病分类系统 - 骨化纤维瘤与骨纤维异常增殖综合征</title>
+    <meta name="description" content="基于深度学习的疾病分类系统，区分骨化纤维瘤与骨纤维异常增殖综合征" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+      body {
+        font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        background-color: #f8f9fa;
+      }
+      .header {
+        background-color: #0d6efd;
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        text-align: center;
+      }
+      .result-box {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 20px;
+        margin-top: 20px;
+        background-color: #f9f9f9;
+        display: none;
+      }
+      .feature-section {
+        background-color: white;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .footer {
+        margin-top: 50px;
+        padding: 20px 0;
+        text-align: center;
+        background-color: #f1f1f1;
+        border-top: 1px solid #ddd;
+      }
+      .loading {
+        display: none;
+        text-align: center;
+        margin: 20px 0;
+      }
+      .dropzone {
+        border: 2px dashed #0087F7;
+        border-radius: 5px;
+        background: #f8f8f8;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        margin-bottom: 15px;
+      }
+      .dropzone:hover {
+        background: #f1f1f1;
+      }
+      .preview-container {
+        margin-top: 15px;
+        max-height: 200px;
+        overflow: hidden;
+      }
+      .preview-image {
+        max-width: 100%;
+        max-height: 200px;
+        display: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="header">
+      <div class="container">
+        <h1>疾病分类系统</h1>
+        <p class="lead">骨化纤维瘤与骨纤维异常增殖综合征的智能鉴别诊断</p>
+      </div>
+    </div>
+
+    <main class="container mb-5">
+      <div class="row">
+        <div class="col-md-12 mb-4">
+          <div class="feature-section">
+            <h2>系统介绍</h2>
+            <p>本系统采用深度学习多模态分析方法，通过融合CT图像特征和病理学特征，对骨化纤维瘤和骨纤维异常增殖综合征进行鉴别诊断。系统通过对CT的ROI区域随机选取切片和病理数字化切片的特征学习融合，提供高准确度的疾病分类结果。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6">
+          <div class="feature-section">
+            <h3>CT特征输入</h3>
+            <p>请上传患者的CT图像或ROI区域图像：</p>
+            <div class="dropzone" id="ct-dropzone">
+              <p>点击或拖拽文件至此处上传CT图像</p>
+              <input type="file" id="ct-file-input" accept="image/*,.nii.gz" style="display: none;">
+            </div>
+            <div class="preview-container">
+              <img id="ct-preview" class="preview-image" src="" alt="CT图像预览">
+            </div>
+            <p class="text-muted mt-2">支持格式：JPG, PNG, DICOM, nii.gz (NIFTI)</p>
+          </div>
+        </div>
+        
+        <div class="col-md-6">
+          <div class="feature-section">
+            <h3>病理特征输入</h3>
+            <p>请上传患者的病理数字化切片图像：</p>
+            <div class="dropzone" id="pathology-dropzone">
+              <p>点击或拖拽文件至此处上传病理图像</p>
+              <input type="file" id="pathology-file-input" accept="image/*,.ndpi" style="display: none;">
+            </div>
+            <div class="preview-container">
+              <img id="pathology-preview" class="preview-image" src="" alt="病理图像预览">
+            </div>
+            <p class="text-muted mt-2">支持格式：JPG, PNG, SVS, ndpi</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mt-4">
+        <div class="col-md-12">
+          <div class="d-grid gap-2">
+            <button id="analyze-btn" class="btn btn-primary btn-lg" disabled>开始分析</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="loading" id="loading-indicator">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">加载中...</span>
+        </div>
+        <p class="mt-2">正在分析数据，请稍候...</p>
+      </div>
+
+      <div class="result-box" id="result-container">
+        <h3 class="text-center mb-4">分析结果</h3>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="card mb-4">
+              <div class="card-header">
+                <h5>诊断结果</h5>
+              </div>
+              <div class="card-body">
+                <h4 id="diagnosis-result" class="text-center mb-3">--</h4>
+                <div class="progress mb-3">
+                  <div id="probability-bar" class="progress-bar" role="progressbar" style="width: 0%;" 
+                      aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                </div>
+                <p class="text-center" id="probability-text">确信度: --</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header">
+                <h5>特征解析</h5>
+              </div>
+              <div class="card-body">
+                <p id="ct-features-text">CT特征解析: 待分析</p>
+                <p id="pathology-features-text">病理特征解析: 待分析</p>
+                <p id="combined-analysis">综合分析: 待生成</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <p>© 2023 疾病分类系统 - 基于深度学习的多模态分析</p>
+        <p class="text-muted">本系统仅供医疗专业人员辅助诊断使用，不能替代专业医生的诊断意见</p>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.1.0/dist/tf.min.js"></script>
+    <script src="js/disease-classifier.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        // CT图像上传
+        const ctDropzone = document.getElementById('ct-dropzone');
+        const ctFileInput = document.getElementById('ct-file-input');
+        const ctPreview = document.getElementById('ct-preview');
+        
+        // 病理图像上传
+        const pathologyDropzone = document.getElementById('pathology-dropzone');
+        const pathologyFileInput = document.getElementById('pathology-file-input');
+        const pathologyPreview = document.getElementById('pathology-preview');
+        
+        // 分析按钮和结果容器
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const resultContainer = document.getElementById('result-container');
+        
+        // CT图像上传处理
+        ctDropzone.addEventListener('click', () => ctFileInput.click());
+        ctFileInput.addEventListener('change', handleCTFileSelect);
+        
+        // 病理图像上传处理
+        pathologyDropzone.addEventListener('click', () => pathologyFileInput.click());
+        pathologyFileInput.addEventListener('change', handlePathologyFileSelect);
+        
+        // 拖拽上传
+        setupDragAndDrop(ctDropzone, handleCTFileSelect);
+        setupDragAndDrop(pathologyDropzone, handlePathologyFileSelect);
+        
+        // 分析按钮点击事件
+        analyzeBtn.addEventListener('click', startAnalysis);
+        
+        // 存储上传的文件引用
+        let ctFile = null;
+        let pathologyFile = null;
+        
+        // 处理CT图像文件选择
+        function handleCTFileSelect(event) {
+          const file = event.target.files[0] || (event.dataTransfer && event.dataTransfer.files[0]);
+          if (!file) return;
+          
+          const fileName = file.name.toLowerCase();
+          const isSpecialFormat = fileName.endsWith('.nii.gz') || 
+                                 fileName.endsWith('.nii') || 
+                                 fileName.endsWith('.dcm') || 
+                                 fileName.includes('dicom');
+          
+          if (!file.type.startsWith('image/') && !isSpecialFormat) {
+            alert('请上传有效的CT图像文件或支持的医学影像格式');
+            return;
+          }
+          
+          // 保存文件引用
+          ctFile = file;
+          
+          // 对于标准图像格式，创建预览
+          if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              ctPreview.src = e.target.result;
+              ctPreview.style.display = 'block';
+              checkEnableAnalyzeButton();
+            };
+            reader.readAsDataURL(file);
+          } else {
+            // 对于特殊格式，创建占位符预览
+            if (fileName.endsWith('.nii.gz') || fileName.endsWith('.nii')) {
+              // NIFTI文件预览
+              const canvas = document.createElement('canvas');
+              canvas.width = 224;
+              canvas.height = 224;
+              const ctx = canvas.getContext('2d');
+              ctx.fillStyle = "#f0f0f0";
+              ctx.fillRect(0, 0, 224, 224);
+              ctx.fillStyle = "#666666";
+              ctx.font = "14px Arial";
+              ctx.fillText("NIFTI图像已加载", 60, 112);
+              ctx.fillText(file.name, 40, 140);
+              ctPreview.src = canvas.toDataURL();
+              ctPreview.style.display = 'block';
+              checkEnableAnalyzeButton();
+            } else {
+              // DICOM或其他格式
+              const canvas = document.createElement('canvas');
+              canvas.width = 224;
+              canvas.height = 224;
+              const ctx = canvas.getContext('2d');
+              ctx.fillStyle = "#f5f5f5";
+              ctx.fillRect(0, 0, 224, 224);
+              ctx.fillStyle = "#333333";
+              ctx.font = "14px Arial";
+              ctx.fillText(`${fileName.split('.').pop().toUpperCase()}格式已加载`, 50, 112);
+              ctx.fillText(file.name, 40, 140);
+              ctPreview.src = canvas.toDataURL();
+              ctPreview.style.display = 'block';
+              checkEnableAnalyzeButton();
+            }
+          }
+        }
+        
+        // 处理病理图像文件选择
+        function handlePathologyFileSelect(event) {
+          const file = event.target.files[0] || (event.dataTransfer && event.dataTransfer.files[0]);
+          if (!file) return;
+          
+          const fileName = file.name.toLowerCase();
+          const isSpecialFormat = fileName.endsWith('.ndpi') || 
+                                 fileName.endsWith('.svs');
+          
+          if (!file.type.startsWith('image/') && !isSpecialFormat) {
+            alert('请上传有效的病理图像文件或支持的专业格式');
+            return;
+          }
+          
+          // 保存文件引用
+          pathologyFile = file;
+          
+          // 对于标准图像格式，创建预览
+          if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              pathologyPreview.src = e.target.result;
+              pathologyPreview.style.display = 'block';
+              checkEnableAnalyzeButton();
+            };
+            reader.readAsDataURL(file);
+          } else {
+            // 对于特殊格式，创建占位符预览
+            if (fileName.endsWith('.ndpi')) {
+              // NDPI文件预览
+              const canvas = document.createElement('canvas');
+              canvas.width = 224;
+              canvas.height = 224;
+              const ctx = canvas.getContext('2d');
+              ctx.fillStyle = "#f8f8ff";
+              ctx.fillRect(0, 0, 224, 224);
+              ctx.fillStyle = "#4a6fa5";
+              ctx.font = "14px Arial";
+              ctx.fillText("NDPI病理图像已加载", 50, 112);
+              ctx.fillText(file.name, 40, 140);
+              pathologyPreview.src = canvas.toDataURL();
+              pathologyPreview.style.display = 'block';
+              checkEnableAnalyzeButton();
+            } else {
+              // SVS或其他格式
+              const canvas = document.createElement('canvas');
+              canvas.width = 224;
+              canvas.height = 224;
+              const ctx = canvas.getContext('2d');
+              ctx.fillStyle = "#f5f5f5";
+              ctx.fillRect(0, 0, 224, 224);
+              ctx.fillStyle = "#333333";
+              ctx.font = "14px Arial";
+              ctx.fillText(`${fileName.split('.').pop().toUpperCase()}格式已加载`, 50, 112);
+              ctx.fillText(file.name, 40, 140);
+              pathologyPreview.src = canvas.toDataURL();
+              pathologyPreview.style.display = 'block';
+              checkEnableAnalyzeButton();
+            }
+          }
+        }
+        
+        // 设置拖拽上传
+        function setupDragAndDrop(dropzone, handleFileSelect) {
+          dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.style.backgroundColor = '#e9ecef';
+          });
+          
+          dropzone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropzone.style.backgroundColor = '#f8f8f8';
+          });
+          
+          dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.style.backgroundColor = '#f8f8f8';
+            const event = { dataTransfer: e.dataTransfer };
+            handleFileSelect(event);
+          });
+        }
+        
+        // 检查是否启用分析按钮
+        function checkEnableAnalyzeButton() {
+          if (ctPreview.style.display === 'block' && pathologyPreview.style.display === 'block') {
+            analyzeBtn.disabled = false;
+          } else {
+            analyzeBtn.disabled = true;
+          }
+        }
+        
+        // 开始分析
+        function startAnalysis() {
+          // 显示加载指示器
+          loadingIndicator.style.display = 'block';
+          // 禁用分析按钮
+          analyzeBtn.disabled = true;
+          
+          setTimeout(() => {
+            // 这里调用disease-classifier.js中的分析函数
+            // 优先使用文件对象进行分析，如果有的话
+            DiseaseClassifier.analyze(
+              ctFile || ctPreview,   // 使用CT文件或预览图像
+              pathologyFile || pathologyPreview,  // 使用病理文件或预览图像
+              ctPreview,  // 预览元素
+              pathologyPreview  // 预览元素
+            )
+              .then(result => {
+                displayResults(result);
+              })
+              .catch(error => {
+                console.error('分析错误:', error);
+                alert('分析过程中发生错误，请重试。');
+              })
+              .finally(() => {
+                loadingIndicator.style.display = 'none';
+                analyzeBtn.disabled = false;
+              });
+          }, 1000); // 模拟处理延时
+        }
+        
+        // 显示结果
+        function displayResults(result) {
+          const diagnosisResult = document.getElementById('diagnosis-result');
+          const probabilityBar = document.getElementById('probability-bar');
+          const probabilityText = document.getElementById('probability-text');
+          const ctFeaturesText = document.getElementById('ct-features-text');
+          const pathologyFeaturesText = document.getElementById('pathology-features-text');
+          const combinedAnalysis = document.getElementById('combined-analysis');
+          
+          // 设置诊断结果
+          diagnosisResult.textContent = result.diagnosis;
+          
+          // 设置概率条
+          const probability = Math.round(result.probability * 100);
+          probabilityBar.style.width = `${probability}%`;
+          probabilityBar.setAttribute('aria-valuenow', probability);
+          probabilityBar.textContent = `${probability}%`;
+          
+          // 设置概率文本
+          probabilityText.textContent = `确信度: ${probability}%`;
+          
+          // 设置特征解析
+          ctFeaturesText.textContent = `CT特征解析: ${result.ctFeatures}`;
+          pathologyFeaturesText.textContent = `病理特征解析: ${result.pathologyFeatures}`;
+          combinedAnalysis.textContent = `综合分析: ${result.combinedAnalysis}`;
+          
+          // 显示结果容器
+          resultContainer.style.display = 'block';
+          
+          // 滚动到结果部分
+          resultContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    </script>
+  </body>
+</html>
