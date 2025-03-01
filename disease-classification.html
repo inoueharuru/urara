@@ -377,33 +377,71 @@
         
         // 开始分析
         function startAnalysis() {
-          // 显示加载指示器
-          loadingIndicator.style.display = 'block';
-          // 禁用分析按钮
-          analyzeBtn.disabled = true;
-          
-          setTimeout(() => {
-            // 这里调用disease-classifier.js中的分析函数
-            // 优先使用文件对象进行分析，如果有的话
-            DiseaseClassifier.analyze(
-              ctFile || ctPreview,   // 使用CT文件或预览图像
-              pathologyFile || pathologyPreview,  // 使用病理文件或预览图像
-              ctPreview,  // 预览元素
-              pathologyPreview  // 预览元素
-            )
-              .then(result => {
-                displayResults(result);
-              })
-              .catch(error => {
-                console.error('分析错误:', error);
-                alert('分析过程中发生错误，请重试。');
-              })
-              .finally(() => {
+    // 显示加载指示器
+    loadingIndicator.style.display = 'block';
+    resultContainer.style.display = 'none';
+
+    // 创建一个FormData对象来存储文件
+    const formData = new FormData();
+    formData.append('ctFile', ctFile);
+    formData.append('pathologyFile', pathologyFile);
+
+    // 假设后端有一个接口可以接收文件并返回存储路径
+    const uploadUrl = '/upload';
+
+    // 先上传CT文件
+    fetch(uploadUrl, {
+        method: 'POST',
+        body: formData.get('ctFile')
+    })
+   .then(response => response.json())
+   .then(ctData => {
+        const ctImagePath = ctData.path;
+
+        // 上传病理文件
+        fetch(uploadUrl, {
+            method: 'POST',
+            body: formData.get('pathologyFile')
+        })
+       .then(response => response.json())
+       .then(pathologyData => {
+            const pathologyPath = pathologyData.path;
+
+            // 假设mask文件路径是固定的或者可以通过其他方式获取
+            const maskPath = '/path/to/mask';
+
+            // 调用预测接口
+            const predictUrl = '/predict';
+            const predictData = {
+                ct_image_path: ctImagePath,
+                mask_path: maskPath,
+                pathology_path: pathologyPath
+            };
+
+            fetch(predictUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(predictData)
+            })
+           .then(response => response.json())
+           .then(data => {
+                // 隐藏加载指示器，显示结果容器
                 loadingIndicator.style.display = 'none';
-                analyzeBtn.disabled = false;
-              });
-          }, 1000); // 模拟处理延时
-        }
+                resultContainer.style.display = 'block';
+
+                // 更新诊断结果等信息
+                document.getElementById('diagnosis-result').textContent = data.prediction;
+            })
+           .catch(error => {
+                console.error('分析出错:', error);
+                alert('分析出错，请稍后重试');
+                loadingIndicator.style.display = 'none';
+            });
+        });
+    });
+}
         
         // 显示结果
         function displayResults(result) {
